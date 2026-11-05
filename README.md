@@ -350,13 +350,4 @@ permissions.
 - The current agent is a deterministic CSV query agent, not an external
   generative LLM agent.
 
-## Recommended next steps
 
-- Add rolling-origin validation folds.
-- Compare additional baseline models.
-- Add weather and event context.
-- Add labeled anomaly records and precision/recall evaluation.
-- Segment accuracy by zone demand and hour.
-- Add authentication and database persistence before production deployment.
-- Replace the deterministic agent with an LLM tool-calling agent guarded by
-  explicit allowed tools and data scopes.
