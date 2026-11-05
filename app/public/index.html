@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NYC Taxi Demand Intelligence</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">NY</span><div><b>NYC Demand</b><small>January 2023</small></div></div>
+    <nav>
+      <button class="nav-button active" data-page="overview">Overview</button>
+      <button class="nav-button" data-page="forecast">Forecast</button>
+      <button class="nav-button" data-page="anomalies">Anomalies</button>
+      <button class="nav-button" data-page="clusters">Clusters</button>
+      <button class="nav-button" data-page="agent">AI agent</button>
+    </nav>
+  </aside>
+  <main>
+    <header><div><p class="eyebrow">GOLD DATA · HOUR × ZONE</p><h1 id="pageTitle">Demand overview</h1></div><span class="status">January 2023 data</span></header>
+    <section id="overview" class="page active">
+      <div id="summaryCards" class="cards"></div>
+      <div class="grid-two">
+        <article class="panel"><div class="panel-head"><h2>Busiest zones</h2></div><div id="busyZones" class="bar-list"></div></article>
+        <article class="panel"><div class="panel-head"><h2>Anomaly mix</h2></div><div id="anomalyMix" class="anomaly-mix"></div></article>
+      </div>
+    </section>
+    <section id="forecast" class="page">
+      <article class="panel">
+        <div class="panel-head controls"><label>Zone <select id="forecastZone"></select></label><label>Date <input id="forecastDate" type="date" value="2023-01-01" min="2023-01-01" max="2023-01-31"></label></div>
+        <div id="forecastChart" class="chart"></div>
+      </article>
+    </section>
+    <section id="anomalies" class="page">
+      <article class="panel">
+        <div class="panel-head controls"><label>Zone <select id="anomalyZone"><option value="">All zones</option></select></label><label>Type <select id="anomalyType"><option value="">All anomalies</option><option value="unexpected spike">Spikes</option><option value="unexpected drop">Drops</option></select></label></div>
+        <div class="table-wrap"><table><thead><tr><th>Hour</th><th>Zone</th><th>Actual</th><th>Predicted</th><th>Type</th><th>Deviation</th></tr></thead><tbody id="anomalyTable"></tbody></table></div>
+      </article>
+    </section>
+    <section id="clusters" class="page">
+      <article class="panel"><div class="panel-head"><h2>Zone demand profiles</h2></div><div id="clusterCards" class="cluster-grid"></div></article>
+    </section>
+    <section id="agent" class="page">
+      <article class="panel agent-panel">
+        <div class="agent-head"><div><span class="agent-dot"></span><b>Taxi Demand Agent</b></div><small>Answers from the local gold CSVs</small></div>
+        <div id="chatMessages" class="chat"></div>
+        <form id="agentForm" class="chat-form"><input id="agentInput" autocomplete="off" placeholder="Ask about forecasts, anomalies, clusters, or zones…"><button type="submit">Ask</button></form>
+        <div class="suggestions"><button>Which zones have the highest total demand?</button><button>Which zones have the most anomalies?</button><button>Forecast for JFK Airport</button></div>
+      </article>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

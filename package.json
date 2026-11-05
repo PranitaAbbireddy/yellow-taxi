@@ -1,0 +1,17 @@
+{
+  "name": "nyc-taxi-demand-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NYC taxi demand dashboard and data agent",
+  "main": "app/server.js",
+  "scripts": {
+    "start": "node app/server.js",
+    "dev": "node --watch app/server.js",
+    "test": "node --test tests/*.test.js",
+    "evaluate": "node scripts/evaluate_demand.js"
+  },
+  "dependencies": {
+    "csv-parse": "^5.6.0",
+    "express": "^5.1.0"
+  }
+}
