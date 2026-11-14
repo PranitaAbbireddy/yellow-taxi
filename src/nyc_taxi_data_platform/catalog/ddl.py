@@ -1,4 +1,8 @@
-"""Unity Catalog DDL helpers (idempotent CREATE SCHEMA / TABLE)."""
+"""Unity Catalog DDL definitions and idempotent schema/table management.
+
+Contains idempotent CREATE statements for Catalog, Schemas, Volumes, and Delta Tables
+across the Bronze, Silver, and Gold layers.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +10,14 @@ from nyc_taxi_data_platform.config import PipelineConfig
 
 
 def ensure_schemas_sql(config: PipelineConfig) -> list[str]:
+    """Generate DDL statements to ensure the catalog, schemas, and volumes exist.
+
+    Args:
+        config: Current pipeline configuration.
+
+    Returns:
+        List of SQL CREATE IF NOT EXISTS statements.
+    """
     cat = config.catalog
     return [
         f"CREATE CATALOG IF NOT EXISTS {cat}",
@@ -16,6 +28,7 @@ def ensure_schemas_sql(config: PipelineConfig) -> list[str]:
     ]
 
 
+# Bronze layer: raw ingested tables, ingestion tracking manifest, and audit logs
 BRONZE_TABLES_SQL = """
 CREATE TABLE IF NOT EXISTS {catalog}.{bronze}.yellow_taxi_trips (
   source_file STRING NOT NULL,
@@ -78,6 +91,7 @@ CREATE TABLE IF NOT EXISTS {catalog}.{bronze}.pipeline_audit_log (
 ) USING DELTA;
 """
 
+# Silver layer: standardized trips, quarantined invalid rows, dimension zones, and DQ results
 SILVER_TABLES_SQL = """
 CREATE TABLE IF NOT EXISTS {catalog}.{silver}.trips (
   trip_fingerprint STRING NOT NULL,
@@ -127,6 +141,7 @@ CREATE TABLE IF NOT EXISTS {catalog}.{silver}.data_quality_results (
 ) USING DELTA;
 """
 
+# Gold layer: business facts, dimensions, and ML feature tables
 GOLD_TABLES_SQL = """
 CREATE TABLE IF NOT EXISTS {catalog}.{gold}.fact_pickups_hourly (
   pickup_hour TIMESTAMP NOT NULL,
@@ -181,6 +196,14 @@ CREATE TABLE IF NOT EXISTS {catalog}.{gold}.ml_inference_features (
 
 
 def all_ddl_statements(config: PipelineConfig) -> list[str]:
+    """Assemble all schema and table DDL statements formatted with config parameters.
+
+    Args:
+        config: Current pipeline configuration.
+
+    Returns:
+        List of SQL execution strings in logical dependency order.
+    """
     statements = ensure_schemas_sql(config)
     fmt = {
         "catalog": config.catalog,

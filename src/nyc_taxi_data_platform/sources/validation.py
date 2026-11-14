@@ -1,4 +1,8 @@
-"""Source file / schema validation before ingestion."""
+"""Source file schema validation prior to Bronze ingestion.
+
+Validates column presence and era compatibility, ensuring that mandatory columns
+exist before ingesting TLC Parquet datasets.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +19,8 @@ from nyc_taxi_data_platform.sources.schema_registry import (
 
 
 class ValidationStatus(str, Enum):
+    """Status outcomes for source column schema validation."""
+
     OK = "ok"
     MISSING_REQUIRED = "missing_required"
     EXTRA_COLUMNS = "extra_columns"
@@ -24,6 +30,16 @@ class ValidationStatus(str, Enum):
 
 @dataclass(frozen=True)
 class SchemaValidationResult:
+    """Detailed result of schema validation checks.
+
+    Attributes:
+        status: ValidationStatus enum outcome.
+        era: Detected TLC SchemaEra.
+        normalized_columns: Tuple of all normalized columns present.
+        missing_required: Tuple of mandatory columns missing from the file.
+        message: Explanatory validation message.
+    """
+
     status: ValidationStatus
     era: SchemaEra
     normalized_columns: tuple[str, ...]
@@ -32,10 +48,19 @@ class SchemaValidationResult:
 
 
 def validate_source_columns(columns: list[str]) -> SchemaValidationResult:
+    """Validate incoming dataset columns against modern schema requirements.
+
+    Args:
+        columns: List of raw column names extracted from source file.
+
+    Returns:
+        SchemaValidationResult detailing status, detected era, and missing columns.
+    """
     normalized = normalize_column_names(columns)
     normalized_set = set(normalized)
     era = detect_era(normalized_set)
 
+    # Reject pre-2011 lat/lon datasets early
     if not is_modern_era_supported(era):
         return SchemaValidationResult(
             status=ValidationStatus.UNSUPPORTED_SCHEMA,
@@ -48,6 +73,7 @@ def validate_source_columns(columns: list[str]) -> SchemaValidationResult:
             ),
         )
 
+    # Check for missing required columns
     missing = sorted(MODERN_REQUIRED_COLUMNS - normalized_set)
     if missing:
         return SchemaValidationResult(

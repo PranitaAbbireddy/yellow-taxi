@@ -1,4 +1,9 @@
-"""Silver standardization, fingerprint, and quarantine rules."""
+"""Silver layer standardization, fingerprint generation, and quality quarantine rules.
+
+Applies deterministic SHA-256 fingerprinting for trip deduplication, standardizes
+timestamp semantics to America/New_York local wall-clock time, splits invalid rows
+into quarantine, and applies windowed deduplication.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +15,14 @@ from nyc_taxi_data_platform.config import QualityConfig
 
 
 def trip_fingerprint_expr() -> F.Column:
-    """Deterministic fingerprint for deduplication."""
+    """Generate a deterministic SHA-256 hash expression across core trip attributes.
+
+    Uses vendor, timestamps, pickup/dropoff locations, distance, and fare to detect
+    exact duplicate trip entries.
+
+    Returns:
+        Column expression producing the 64-character hex hash.
+    """
     return F.sha2(
         F.concat_ws(
             "|",
@@ -27,7 +39,15 @@ def trip_fingerprint_expr() -> F.Column:
 
 
 def standardize_bronze_trips(df: DataFrame, local_timezone: str) -> DataFrame:
-    """Map bronze columns to silver trip schema (NYC wall-clock as timestamp_ntz semantics)."""
+    """Project Bronze columns to Silver trip schema with NYC local wall-clock semantics.
+
+    Args:
+        df: Input Bronze DataFrame.
+        local_timezone: Standard timezone string (e.g. 'America/New_York').
+
+    Returns:
+        DataFrame matching Silver trips schema.
+    """
     return df.select(
         trip_fingerprint_expr().alias("trip_fingerprint"),
         F.col("source_file"),
@@ -48,6 +68,21 @@ def standardize_bronze_trips(df: DataFrame, local_timezone: str) -> DataFrame:
 
 
 def validation_flags(quality: QualityConfig) -> F.Column:
+    """Boolean column expression flagging records violating quality rules.
+
+    Flags rows with:
+        - Missing or negative timestamps
+        - Dropoff before pickup
+        - Null or non-positive location IDs
+        - Negative or excessive trip distance
+        - Fare amounts outside acceptable range
+
+    Args:
+        quality: QualityConfig instance with threshold limits.
+
+    Returns:
+        Boolean Column evaluating to True for invalid rows.
+    """
     return (
         F.col("pickup_datetime").isNull()
         | F.col("dropoff_datetime").isNull()
@@ -68,6 +103,15 @@ def validation_flags(quality: QualityConfig) -> F.Column:
 def split_valid_and_quarantine(
     standardized: DataFrame, quality: QualityConfig
 ) -> tuple[DataFrame, DataFrame]:
+    """Split standardized trips into valid and quarantined DataFrames.
+
+    Args:
+        standardized: Standardized Silver trips DataFrame.
+        quality: QualityConfig instance containing thresholds.
+
+    Returns:
+        Tuple of (valid_trips_df, quarantined_trips_df).
+    """
     invalid = standardized.filter(validation_flags(quality))
     valid = standardized.filter(~validation_flags(quality))
 
@@ -91,7 +135,14 @@ def split_valid_and_quarantine(
 
 
 def deduplicate_trips(df: DataFrame) -> DataFrame:
-    """Keep earliest processed row per fingerprint within the batch."""
+    """Deduplicate trips by keeping the earliest processed row per fingerprint.
+
+    Args:
+        df: Input DataFrame containing trip_fingerprint and processed_at columns.
+
+    Returns:
+        Deduplicated DataFrame.
+    """
     from pyspark.sql.window import Window
 
     window = Window.partitionBy("trip_fingerprint").orderBy(F.col("processed_at").asc())

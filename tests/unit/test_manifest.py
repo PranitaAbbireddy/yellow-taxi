@@ -1,3 +1,5 @@
+"""Unit tests for ingestion manifest duplicate detection policy."""
+
 from datetime import datetime, timezone
 
 from nyc_taxi_data_platform.bronze.manifest import (
@@ -9,6 +11,7 @@ _NOW = datetime.now(timezone.utc)
 
 
 def test_duplicate_ingestion_blocked():
+    """Verify that an already-known file identity is marked as duplicate with 0 record count."""
     identity = "abc123"
     known = {identity}
     record = ManifestRecord(
@@ -26,6 +29,7 @@ def test_duplicate_ingestion_blocked():
 
 
 def test_reprocess_after_identity_removed():
+    """Verify that removing an identity from known set allows file reprocessing."""
     identity = "abc123"
     record = ManifestRecord(
         source_file_identity=identity,

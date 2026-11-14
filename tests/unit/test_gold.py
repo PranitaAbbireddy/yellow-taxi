@@ -1,15 +1,18 @@
+"""Unit tests for Gold layer aggregation, zero-filling, and count reconciliation."""
+
 from datetime import datetime
 
 from pyspark.sql import functions as F
 
+from nyc_taxi_data_platform.bronze.pipeline import read_parquet_with_validation
 from nyc_taxi_data_platform.config import load_config
 from nyc_taxi_data_platform.gold.aggregates import hourly_pickups_from_silver, reconcile_counts
 from nyc_taxi_data_platform.gold.coverage import apply_zero_fill, build_hourly_grid
 from nyc_taxi_data_platform.silver.transform import standardize_bronze_trips
-from nyc_taxi_data_platform.bronze.pipeline import read_parquet_with_validation
 
 
 def test_hourly_aggregation_and_reconciliation(spark, modern_parquet_path):
+    """Verify that hourly pickup sums reconcile exactly with valid Silver trip counts."""
     config = load_config()
     bronze, _ = read_parquet_with_validation(spark, modern_parquet_path)
     silver = standardize_bronze_trips(bronze, config.local_timezone)
@@ -19,6 +22,7 @@ def test_hourly_aggregation_and_reconciliation(spark, modern_parquet_path):
 
 
 def test_zero_fill_within_coverage(spark):
+    """Verify that unobserved zone-hours within coverage range are filled with 0."""
     observed = spark.createDataFrame(
         [
             (datetime(2023, 1, 1, 10, 0), 161, 2),

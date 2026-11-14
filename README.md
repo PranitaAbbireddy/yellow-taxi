@@ -130,20 +130,34 @@ Examples:
 app/
   public/                 Browser dashboard
   server.js               Express API, web server, and local agent
-data/                     Generated ML CSV and model artifacts, normally ignored
+config/
+  defaults.yaml           Pipeline configuration defaults
+data/
+  raw/                    Sample reference CSV and trip Parquet files
 docs/
-  architecture.md         Platform architecture
-  demand_forecast_and_anomaly_analysis.md
+  architecture.md         Medallion platform architecture
+  data_dictionary.md      Bronze, Silver, and Gold data dictionary
+  data_quality.md         Silver validation and quarantine rules
+  decisions.md            Architecture decision records (ADRs)
+  demand_forecast_and_anomaly_analysis.md Detailed forecast and anomaly report
+  feature_contract.md     ML feature contract and column definitions
+  ml_handoff.md           Handoff guidance for ML teams
   model_evaluation.md     Metric definitions and evaluation plan
-  validation_report.md
+  source_schemas.md       TLC Yellow Taxi source schema eras
+  validation_report.md    Pipeline test execution report
 notebooks/
   analysis.ipynb          Forecast, anomaly, and clustering workflow
   analysis.executed.ipynb Successful executed notebook copy
 scripts/
+  databricks_entry.py     Databricks workflow task entry point
   evaluate_demand.js      Node evaluation report generator
+  run_local_tests.ps1     Helper script to run local unit tests
+  upload_data.ps1         Helper script to upload raw data to UC volumes
+  workspace_compatibility.py Databricks workspace capability reporter
 src/
-  nyc_taxi_data_platform/ Bronze, silver, gold, and pipeline code
-tests/                    Unit tests
+  nyc_taxi_data_platform/ Bronze, Silver, Gold, and pipeline orchestration code
+tests/
+  unit/                   Unit test suite
 ```
 
 ## Prerequisites

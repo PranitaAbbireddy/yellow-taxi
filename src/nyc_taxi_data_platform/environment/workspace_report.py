@@ -1,18 +1,31 @@
-"""Generate a workspace compatibility report (run on Databricks or via CLI wrapper)."""
+"""Databricks workspace compatibility and Unity Catalog discovery report.
+
+Executes Databricks CLI commands to verify catalog existence and list available catalogs
+for deployment configuration.
+"""
 
 from __future__ import annotations
 
 import json
 import subprocess
 import sys
-from dataclasses import dataclass, asdict
-from typing import Any
+from dataclasses import asdict, dataclass
 
 from nyc_taxi_data_platform.config import load_config
 
 
 @dataclass
 class WorkspaceReport:
+    """Workspace catalog status report.
+
+    Attributes:
+        catalog_exists: True if target catalog exists in workspace.
+        catalog_name: Target catalog name tested.
+        catalogs_listed: List of all catalogs discovered in the workspace.
+        notes: Diagnostic and troubleshooting recommendations.
+        cli_catalog_get_rc: Return code of the 'databricks catalogs get' command.
+    """
+
     catalog_exists: bool
     catalog_name: str
     catalogs_listed: list[str]
@@ -21,6 +34,7 @@ class WorkspaceReport:
 
 
 def _run_databricks(args: list[str]) -> tuple[int, str]:
+    """Execute databricks CLI subcommand and capture return code and combined output."""
     try:
         proc = subprocess.run(
             ["databricks", *args],
@@ -35,9 +49,18 @@ def _run_databricks(args: list[str]) -> tuple[int, str]:
 
 
 def build_workspace_report(profile: str = "DEFAULT") -> WorkspaceReport:
+    """Probe Databricks workspace using the CLI to check catalog accessibility.
+
+    Args:
+        profile: Databricks CLI authentication profile name.
+
+    Returns:
+        WorkspaceReport with findings and configuration advice.
+    """
     config = load_config()
     notes: list[str] = []
 
+    # List all catalogs
     rc, out = _run_databricks(["catalogs", "list", "-p", profile, "-o", "json"])
     catalogs: list[str] = []
     if rc == 0:
@@ -49,6 +72,7 @@ def build_workspace_report(profile: str = "DEFAULT") -> WorkspaceReport:
     else:
         notes.append(f"catalogs list failed (rc={rc}): {out[:500]}")
 
+    # Test access to target catalog
     get_rc, get_out = _run_databricks(
         ["catalogs", "get", config.catalog, "-p", profile, "-o", "json"]
     )
@@ -70,6 +94,7 @@ def build_workspace_report(profile: str = "DEFAULT") -> WorkspaceReport:
 
 
 def main() -> int:
+    """CLI entry point to output JSON workspace compatibility report."""
     profile = sys.argv[1] if len(sys.argv) > 1 else "DEFAULT"
     report = build_workspace_report(profile=profile)
     print(json.dumps(asdict(report), indent=2))

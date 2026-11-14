@@ -1,4 +1,11 @@
-"""NYC TLC Yellow Taxi source schema eras and column normalization."""
+"""NYC TLC Yellow Taxi source schema eras and column normalization mappings.
+
+Defines the evolution of NYC TLC Yellow Taxi schemas over time:
+- PRE_2011: Legacy coordinate-based era (latitude/longitude coordinates, no zone IDs).
+- POST_2011: Modern taxi zone era (PULocationID, DOLocationID).
+- POST_CONGESTION: Introduction of congestion surcharge and airport fee.
+- POST_2025: Addition of Manhattan Central Business District (CBD) congestion fee.
+"""
 
 from __future__ import annotations
 
@@ -8,13 +15,15 @@ from typing import FrozenSet
 
 
 class SchemaEra(str, Enum):
+    """Enumeration of recognized TLC Yellow Taxi schema eras."""
+
     PRE_2011 = "pre_2011"
     POST_2011 = "post_2011"
     POST_CONGESTION = "post_congestion"
     POST_2025 = "post_2025"
 
 
-# Canonical snake_case names used from Bronze onward (Silver standardization target).
+# Mapping from various TLC raw column names (PascalCase or legacy variants) to canonical snake_case
 CANONICAL_RENAME_MAP: dict[str, str] = {
     "VendorID": "vendor_id",
     "vendorid": "vendor_id",
@@ -47,7 +56,7 @@ CANONICAL_RENAME_MAP: dict[str, str] = {
     "dropoff_latitude": "dropoff_latitude",
 }
 
-# Required for modern (post-2011 zone-based) processing.
+# Minimum set of columns strictly required for modern zone-based pipeline processing
 MODERN_REQUIRED_COLUMNS: FrozenSet[str] = frozenset(
     {
         "vendor_id",
@@ -60,6 +69,7 @@ MODERN_REQUIRED_COLUMNS: FrozenSet[str] = frozenset(
     }
 )
 
+# Marker columns identifying the pre-2011 latitude/longitude era
 PRE_2011_MARKER_COLUMNS: FrozenSet[str] = frozenset(
     {
         "pickup_longitude",
@@ -69,6 +79,7 @@ PRE_2011_MARKER_COLUMNS: FrozenSet[str] = frozenset(
     }
 )
 
+# Marker columns identifying post-2011 zone-based schemas
 POST_2011_ZONE_COLUMNS: FrozenSet[str] = frozenset(
     {"pickup_location_id", "dropoff_location_id"}
 )
@@ -76,6 +87,14 @@ POST_2011_ZONE_COLUMNS: FrozenSet[str] = frozenset(
 
 @dataclass(frozen=True)
 class EraDefinition:
+    """Metadata describing a TLC schema era.
+
+    Attributes:
+        era: SchemaEra enum value.
+        description: Textual explanation of era features.
+        optional_columns: Additional columns characteristic of this era.
+    """
+
     era: SchemaEra
     description: str
     optional_columns: FrozenSet[str]
@@ -131,14 +150,24 @@ ERA_DEFINITIONS: dict[SchemaEra, EraDefinition] = {
 
 
 def normalize_column_name(name: str) -> str:
+    """Normalize raw TLC column name to its canonical snake_case representation."""
     return CANONICAL_RENAME_MAP.get(name, CANONICAL_RENAME_MAP.get(name.lower(), name.lower()))
 
 
 def normalize_column_names(columns: list[str]) -> list[str]:
+    """Normalize a list of raw column names to canonical snake_case."""
     return [normalize_column_name(c) for c in columns]
 
 
 def detect_era(normalized_columns: set[str]) -> SchemaEra:
+    """Detect schema era based on the presence of characteristic marker columns.
+
+    Args:
+        normalized_columns: Set of canonical column names present in the file.
+
+    Returns:
+        Identified SchemaEra.
+    """
     has_latlon = PRE_2011_MARKER_COLUMNS.issubset(normalized_columns)
     has_zones = POST_2011_ZONE_COLUMNS.issubset(normalized_columns)
 
@@ -152,5 +181,8 @@ def detect_era(normalized_columns: set[str]) -> SchemaEra:
 
 
 def is_modern_era_supported(era: SchemaEra) -> bool:
-    """Pipeline v1 supports zone-based eras only (post-2011)."""
+    """Check if the detected schema era is supported by the zone-based pipeline.
+
+    Pipeline v1 requires zone ID columns and does not ingest pre-2011 lat/lon datasets.
+    """
     return era != SchemaEra.PRE_2011

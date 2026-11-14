@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI entry: workspace compatibility report."""
+"""CLI entry point for Databricks workspace compatibility and catalog discovery report."""
 
 from nyc_taxi_data_platform.environment.workspace_report import main
 

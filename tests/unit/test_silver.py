@@ -1,3 +1,5 @@
+"""Unit tests for Silver layer standardization, quarantine, and deduplication."""
+
 from pyspark.sql import functions as F
 
 from nyc_taxi_data_platform.bronze.pipeline import read_parquet_with_validation
@@ -11,6 +13,7 @@ from nyc_taxi_data_platform.silver.zones import standardize_zone_lookup
 
 
 def test_quarantine_invalid_dropoff_before_pickup(spark, modern_parquet_path):
+    """Verify that records with dropoff timestamp preceding pickup are sent to quarantine."""
     config = load_config()
     bronze, _ = read_parquet_with_validation(spark, modern_parquet_path)
     assert bronze is not None
@@ -25,6 +28,7 @@ def test_quarantine_invalid_dropoff_before_pickup(spark, modern_parquet_path):
 
 
 def test_deduplicate_trips(spark, modern_parquet_path):
+    """Verify that duplicate rows with identical fingerprints are deduplicated."""
     config = load_config()
     bronze, _ = read_parquet_with_validation(spark, modern_parquet_path)
     standardized = standardize_bronze_trips(bronze, config.local_timezone)
@@ -34,6 +38,7 @@ def test_deduplicate_trips(spark, modern_parquet_path):
 
 
 def test_zone_lookup_standardize(spark):
+    """Verify that raw zone lookup CSV columns are normalized to Silver schema."""
     df = spark.createDataFrame(
         [(1, "EWR", "Newark Airport", "EWR")],
         ["LocationID", "Borough", "Zone", "service_zone"],

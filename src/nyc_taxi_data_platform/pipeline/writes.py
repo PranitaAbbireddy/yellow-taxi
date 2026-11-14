@@ -1,4 +1,8 @@
-"""Delta table write helpers (Databricks / local testing)."""
+"""Delta table write helpers for idempotent loading and merging.
+
+Encapsulates MERGE INTO operations for ingestion manifests and Gold hourly facts,
+as well as partition-scoped overwrites for Silver trips and Bronze appends.
+"""
 
 from __future__ import annotations
 
@@ -9,10 +13,19 @@ from nyc_taxi_data_platform.config import PipelineConfig, load_config
 
 
 def _fqn(config: PipelineConfig, schema: str, table: str) -> str:
+    """Helper to build a three-level table identifier."""
     return config.table_fqn(schema, table)
 
 
 def merge_manifest(spark: SparkSession, manifest_df: DataFrame) -> None:
+    """Merge incoming manifest record into the bronze.ingestion_manifest table.
+
+    Uses WHEN NOT MATCHED THEN INSERT to record new files without duplicating keys.
+
+    Args:
+        spark: Active SparkSession.
+        manifest_df: Single-row or batch DataFrame of ManifestRecord entries.
+    """
     config = load_config()
     table = _fqn(config, config.bronze_schema, "ingestion_manifest")
     manifest_df.createOrReplaceTempView("incoming_manifest")
@@ -27,6 +40,15 @@ def merge_manifest(spark: SparkSession, manifest_df: DataFrame) -> None:
 
 
 def append_bronze_trips(spark: SparkSession, df: DataFrame) -> None:
+    """Append validated and normalized raw trips to the bronze.yellow_taxi_trips table.
+
+    Aligns incoming columns against the standard Bronze schema and fills missing
+    optional columns with nulls.
+
+    Args:
+        spark: Active SparkSession.
+        df: Enriched Bronze DataFrame.
+    """
     config = load_config()
     bronze_cols = [
         "source_file",
@@ -67,6 +89,16 @@ def append_bronze_trips(spark: SparkSession, df: DataFrame) -> None:
 
 
 def overwrite_silver_partition(spark: SparkSession, df: DataFrame, source_month: str) -> None:
+    """Atomically replace Silver trips for a specific source_month partition.
+
+    Deletes existing rows for source_month and appends new validated trips to ensure
+    idempotent reruns.
+
+    Args:
+        spark: Active SparkSession.
+        df: Validated Silver trips DataFrame.
+        source_month: Target partition month string (YYYY-MM).
+    """
     config = load_config()
     table = _fqn(config, config.silver_schema, "trips")
     spark.sql(f"DELETE FROM {table} WHERE source_month = '{source_month}'")
@@ -74,6 +106,15 @@ def overwrite_silver_partition(spark: SparkSession, df: DataFrame, source_month:
 
 
 def merge_gold_hourly(spark: SparkSession, df: DataFrame) -> None:
+    """Upsert hourly pickup aggregates into gold.fact_pickups_hourly.
+
+    Matches on (pickup_hour, pickup_zone_id): updates pickup_count and processed_at
+    if matched, or inserts new rows if not matched.
+
+    Args:
+        spark: Active SparkSession.
+        df: Hourly aggregated DataFrame.
+    """
     config = load_config()
     table = _fqn(config, config.gold_schema, "fact_pickups_hourly")
     df.createOrReplaceTempView("incoming_hourly")
