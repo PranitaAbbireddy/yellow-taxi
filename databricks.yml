@@ -21,6 +21,9 @@ variables:
     default: /Volumes/nyc_taxi/bronze/raw/yellow/yellow_tripdata_2023-01.parquet
   zone_lookup_path:
     default: /Volumes/nyc_taxi/bronze/raw/reference/taxi_zone_lookup.csv
+  gold_exports_path:
+    description: UC volume path for gold CSV exports consumed by the repo notebook/app
+    default: /Volumes/nyc_taxi/gold/exports
 
 targets:
   dev:
@@ -79,6 +82,17 @@ resources:
               - backfill_silver_gold
               - --source-month
               - 2023-01
+        - task_key: export_gold_csv
+          depends_on:
+            - task_key: backfill_silver_gold
+          environment_key: default
+          spark_python_task:
+            python_file: scripts/databricks_entry.py
+            parameters:
+              - --stage
+              - export_gold_csv
+              - --export-path
+              - ${var.gold_exports_path}
         - task_key: audit_ping
           depends_on:
             - task_key: backfill_silver_gold

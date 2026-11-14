@@ -12,6 +12,7 @@ def ensure_schemas_sql(config: PipelineConfig) -> list[str]:
         f"CREATE SCHEMA IF NOT EXISTS {cat}.{config.bronze_schema}",
         f"CREATE SCHEMA IF NOT EXISTS {cat}.{config.silver_schema}",
         f"CREATE SCHEMA IF NOT EXISTS {cat}.{config.gold_schema}",
+        f"CREATE VOLUME IF NOT EXISTS {cat}.{config.gold_schema}.exports",
     ]
 
 

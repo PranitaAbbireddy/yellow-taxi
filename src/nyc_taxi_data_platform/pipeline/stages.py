@@ -26,6 +26,7 @@ from nyc_taxi_data_platform.silver.transform import (
     split_valid_and_quarantine,
     standardize_bronze_trips,
 )
+from nyc_taxi_data_platform.pipeline.exports import stage_export_gold_csv
 from nyc_taxi_data_platform.pipeline.writes import (
     append_bronze_trips,
     merge_gold_hourly,
@@ -177,6 +178,7 @@ def main() -> None:
             "ingest_zones",
             "process_file",
             "backfill_silver_gold",
+            "export_gold_csv",
         ],
     )
     parser.add_argument("--source-path", default="", help="Path for ingest_zones or process_file")
@@ -184,6 +186,11 @@ def main() -> None:
         "--source-month",
         default="",
         help="YYYY-MM for backfill_silver_gold from bronze table",
+    )
+    parser.add_argument(
+        "--export-path",
+        default="",
+        help="Destination directory for export_gold_csv (defaults to the gold exports volume)",
     )
     args = parser.parse_args()
     run_id = new_run_id()
@@ -280,6 +287,19 @@ def main() -> None:
         if bronze_df.limit(1).count() == 0:
             raise SystemExit(f"No bronze rows for source_month={month}")
         _finalize_silver_gold(spark, bronze_df, month, run_id)
+    elif args.stage == "export_gold_csv":
+        config = load_config()
+        results = stage_export_gold_csv(spark, config, args.export_path or None)
+        log_audit(
+            AuditEvent(
+                run_id=run_id,
+                stage="export_gold_csv",
+                status="success",
+                message=f"exported tables={sorted(results)} rows={sum(results.values())}",
+                record_count=sum(results.values()),
+                duration_ms=int((datetime.now(timezone.utc) - start).total_seconds() * 1000),
+            )
+        )
 
 
 if __name__ == "__main__":
