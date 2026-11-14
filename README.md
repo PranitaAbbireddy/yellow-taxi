@@ -115,6 +115,16 @@ The agent is currently deterministic and runs locally. It reads the generated
 CSV outputs and identifies a zone or question type before returning an answer.
 It does not call an external LLM or send data outside the application.
 
+### Data flow and freshness
+
+The dashboard and agent are **not live-connected to Databricks**. The Express
+server reads the generated CSV files in `data/` once at startup and never
+queries the `nyc_taxi` Unity Catalog tables or a Databricks SQL warehouse.
+When the pipeline job refreshes the gold tables, the dashboard keeps showing
+the old snapshot until the CSV exports are copied into `data/`, the notebook
+is re-run, and the server is restarted. See the refresh workflow under
+[Data files](#data-files).
+
 Examples:
 
 - `Which zones have the highest total demand?`
@@ -316,6 +326,21 @@ writes them as single-part CSV files into the `nyc_taxi.gold.exports` Unity
 Catalog volume. Copy them from that volume into `data/` to refresh the notebook
 and dashboard inputs.
 
+### Refreshing the dashboard after a pipeline run
+
+Nothing in this repository pulls from Databricks automatically; the refresh is
+manual and one-way:
+
+1. Run the `nyc_taxi_pipeline` job (or wait for its schedule). The
+   `export_gold_csv` task re-exports the four gold tables as CSV files into
+   the Unity Catalog volume `/Volumes/nyc_taxi/gold/exports`.
+2. Copy those four CSV files into `data/`.
+3. Re-run `notebooks/analysis.ipynb` to regenerate `demand_predictions.csv`,
+   `demand_anomalies.csv`, `zone_demand_clusters.csv`, and the model
+   artifacts from the fresh exports.
+4. Restart the dashboard (`npm start`). The Express server loads the CSVs
+   once at startup, so a restart is required for new data to appear.
+
 The complete zone-hour grid has 265 zones and 744 January 2023 hours, totaling
 197,160 records.
 
@@ -375,5 +400,8 @@ permissions.
   become anomaly error.
 - The current agent is a deterministic CSV query agent, not an external
   generative LLM agent.
+- The dashboard and agent read a static CSV snapshot; they do not pull live
+  data from Databricks. Refreshing requires re-exporting the gold CSVs,
+  re-running the notebook, and restarting the server (see Data files).
 
 
